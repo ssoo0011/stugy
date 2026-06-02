@@ -1,10 +1,13 @@
 package com.stugy.studygroup.service;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +24,7 @@ import com.stugy.studygroup.dto.response.StudyGroupManagementResponse;
 import com.stugy.studygroup.dto.response.StudyGroupMemberResponse;
 import com.stugy.studygroup.dto.response.StudyGroupNotificationItemResponse;
 import com.stugy.studygroup.dto.response.StudyGroupNotificationResponse;
+import com.stugy.studygroup.dto.response.StudyGroupPageResponse;
 import com.stugy.studygroup.dto.response.StudyGroupResponse;
 import com.stugy.studygroup.dto.response.StudyGroupScheduleResponse;
 import com.stugy.studygroup.repository.StudyGroupMemberRepository;
@@ -47,7 +51,7 @@ public class StudyGroupService {
 	}
 
 	@Transactional(readOnly = true)
-	public List<StudyGroupResponse> findAll(String loginId) {
+	public StudyGroupPageResponse findAll(String loginId, int page, int size, String category, String query) {
 		User currentUser = loginId == null ? null : userRepository.findByLoginId(loginId).orElse(null);
 		Map<Long, StudyGroupMemberStatus> applicationStatuses = currentUser == null
 				? Map.of()
@@ -55,13 +59,22 @@ public class StudyGroupService {
 						.collect(Collectors.toMap(
 								member -> member.getStudyGroup().getId(),
 								StudyGroupMember::getStatus));
-		return studyGroupRepository.findAllByOrderByIdDesc().stream()
+		Page<StudyGroup> studyGroupPage = studyGroupRepository.findPage(
+				category == null || category.isBlank() ? "전체" : category,
+				query == null ? "" : query.trim(),
+				PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 30)));
+		List<StudyGroupResponse> groups = studyGroupPage.getContent().stream()
 				.map(studyGroup -> StudyGroupResponse.from(
 						studyGroup,
 						applicationStatuses.get(studyGroup.getId()),
 						currentUser != null && studyGroup.getOwner().getId().equals(currentUser.getId()),
 						countMembers(studyGroup)))
 				.toList();
+		return new StudyGroupPageResponse(
+				groups,
+				studyGroupPage.getNumber(),
+				studyGroupPage.hasNext(),
+				studyGroupPage.getTotalElements());
 	}
 
 	@Transactional
@@ -88,6 +101,22 @@ public class StudyGroupService {
 	}
 
 	@Transactional(readOnly = true)
+	public StudyGroupResponse findOne(String loginId, Long studyGroupId) {
+		User currentUser = loginId == null ? null : userRepository.findByLoginId(loginId).orElse(null);
+		StudyGroup studyGroup = findStudyGroup(studyGroupId);
+		StudyGroupMemberStatus applicationStatus = currentUser == null
+				? null
+				: studyGroupMemberRepository.findByStudyGroupIdAndUserId(studyGroupId, currentUser.getId())
+						.map(StudyGroupMember::getStatus)
+						.orElse(null);
+		return StudyGroupResponse.from(
+				studyGroup,
+				applicationStatus,
+				currentUser != null && studyGroup.getOwner().getId().equals(currentUser.getId()),
+				countMembers(studyGroup));
+	}
+
+	@Transactional(readOnly = true)
 	public MyStudyGroupsResponse findMine(String loginId) {
 		User user = userRepository.findByLoginId(loginId)
 				.orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
@@ -108,14 +137,28 @@ public class StudyGroupService {
 	public StudyGroupNotificationResponse findNotifications(String loginId) {
 		User user = userRepository.findByLoginId(loginId)
 				.orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
-		long pendingApplicationCount = studyGroupMemberRepository.countByStudyGroupOwnerIdAndStatusAndNotificationReadYn(
+		List<StudyGroupMemberStatus> resultStatuses = List.of(
+				StudyGroupMemberStatus.ACCEPTED,
+				StudyGroupMemberStatus.REJECTED);
+		long unreadNotificationCount = studyGroupMemberRepository.countByStudyGroupOwnerIdAndStatusAndNotificationReadYn(
 				user.getId(), StudyGroupMemberStatus.REQUESTED, "N");
-		List<StudyGroupNotificationItemResponse> notifications = studyGroupMemberRepository
+		unreadNotificationCount += studyGroupMemberRepository.countByUserIdAndStatusInAndNotificationReadYn(
+				user.getId(), resultStatuses, "N");
+		List<StudyGroupNotificationItemResponse> requestedNotifications = studyGroupMemberRepository
 				.findAllByStudyGroupOwnerIdAndStatusOrderByCreatedAtDesc(user.getId(), StudyGroupMemberStatus.REQUESTED)
 				.stream()
-				.map(StudyGroupNotificationItemResponse::from)
+				.map(StudyGroupNotificationItemResponse::request)
 				.toList();
-		return new StudyGroupNotificationResponse(pendingApplicationCount, notifications);
+		List<StudyGroupNotificationItemResponse> resultNotifications = studyGroupMemberRepository
+				.findAllByUserIdAndStatusInOrderByUpdatedAtDesc(user.getId(), resultStatuses)
+				.stream()
+				.map(StudyGroupNotificationItemResponse::result)
+				.toList();
+		List<StudyGroupNotificationItemResponse> notifications = java.util.stream.Stream
+				.concat(requestedNotifications.stream(), resultNotifications.stream())
+				.sorted(Comparator.comparing(StudyGroupNotificationItemResponse::notificationAt).reversed())
+				.toList();
+		return new StudyGroupNotificationResponse(unreadNotificationCount, notifications);
 	}
 
 	@Transactional
@@ -124,6 +167,11 @@ public class StudyGroupService {
 				.orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 		studyGroupMemberRepository.findAllByStudyGroupOwnerIdAndStatusAndNotificationReadYn(
 				user.getId(), StudyGroupMemberStatus.REQUESTED, "N")
+				.forEach(StudyGroupMember::markNotificationAsRead);
+		studyGroupMemberRepository.findAllByUserIdAndStatusInAndNotificationReadYn(
+				user.getId(),
+				List.of(StudyGroupMemberStatus.ACCEPTED, StudyGroupMemberStatus.REJECTED),
+				"N")
 				.forEach(StudyGroupMember::markNotificationAsRead);
 	}
 

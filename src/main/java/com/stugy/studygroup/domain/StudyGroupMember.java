@@ -74,12 +74,12 @@ public class StudyGroupMember {
 
 	public void accept() {
 		this.status = StudyGroupMemberStatus.ACCEPTED;
-		this.notificationReadYn = "Y";
+		this.notificationReadYn = "N";
 	}
 
 	public void reject() {
 		this.status = StudyGroupMemberStatus.REJECTED;
-		this.notificationReadYn = "Y";
+		this.notificationReadYn = "N";
 	}
 
 	public StudyGroupMemberStatus getStatus() {
@@ -100,5 +100,9 @@ public class StudyGroupMember {
 
 	public LocalDateTime getCreatedAt() {
 		return createdAt;
+	}
+
+	public LocalDateTime getUpdatedAt() {
+		return updatedAt;
 	}
 }

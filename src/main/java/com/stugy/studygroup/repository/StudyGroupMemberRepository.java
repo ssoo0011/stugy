@@ -1,5 +1,6 @@
 package com.stugy.studygroup.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,4 +29,13 @@ public interface StudyGroupMemberRepository extends JpaRepository<StudyGroupMemb
 
 	List<StudyGroupMember> findAllByStudyGroupOwnerIdAndStatusAndNotificationReadYn(
 			Long ownerId, StudyGroupMemberStatus status, String notificationReadYn);
+
+	long countByUserIdAndStatusInAndNotificationReadYn(
+			Long userId, Collection<StudyGroupMemberStatus> statuses, String notificationReadYn);
+
+	List<StudyGroupMember> findAllByUserIdAndStatusInOrderByUpdatedAtDesc(
+			Long userId, Collection<StudyGroupMemberStatus> statuses);
+
+	List<StudyGroupMember> findAllByUserIdAndStatusInAndNotificationReadYn(
+			Long userId, Collection<StudyGroupMemberStatus> statuses, String notificationReadYn);
 }

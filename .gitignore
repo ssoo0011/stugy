@@ -39,3 +39,6 @@ out/
 ### React ###
 frontend/node_modules/
 frontend/dist/
+
+### Local environment ###
+.env.properties

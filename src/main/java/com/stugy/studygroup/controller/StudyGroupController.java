@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -19,6 +20,7 @@ import com.stugy.studygroup.dto.response.MyStudyGroupsResponse;
 import com.stugy.studygroup.dto.response.StudyGroupApplicationResponse;
 import com.stugy.studygroup.dto.response.StudyGroupManagementResponse;
 import com.stugy.studygroup.dto.response.StudyGroupNotificationResponse;
+import com.stugy.studygroup.dto.response.StudyGroupPageResponse;
 import com.stugy.studygroup.dto.response.StudyGroupResponse;
 import com.stugy.studygroup.dto.response.StudyGroupScheduleResponse;
 import com.stugy.studygroup.service.StudyGroupService;
@@ -36,11 +38,16 @@ public class StudyGroupController {
 	}
 
 	@GetMapping
-	public java.util.List<StudyGroupResponse> findAll(Authentication authentication) {
+	public StudyGroupPageResponse findAll(
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "10") int size,
+			@RequestParam(defaultValue = "전체") String category,
+			@RequestParam(defaultValue = "") String query,
+			Authentication authentication) {
 		String loginId = authentication == null || authentication instanceof AnonymousAuthenticationToken
 				? null
 				: authentication.getName();
-		return studyGroupService.findAll(loginId);
+		return studyGroupService.findAll(loginId, page, size, category, query);
 	}
 
 	@PostMapping
@@ -52,6 +59,14 @@ public class StudyGroupController {
 	@GetMapping("/mine")
 	public MyStudyGroupsResponse findMine(Authentication authentication) {
 		return studyGroupService.findMine(authentication.getName());
+	}
+
+	@GetMapping("/{studyGroupId}")
+	public StudyGroupResponse findOne(@PathVariable Long studyGroupId, Authentication authentication) {
+		String loginId = authentication == null || authentication instanceof AnonymousAuthenticationToken
+				? null
+				: authentication.getName();
+		return studyGroupService.findOne(loginId, studyGroupId);
 	}
 
 	@GetMapping("/notifications")

@@ -1,11 +1,16 @@
 import { request } from './http.js'
 
-export function getStudyGroups() {
-  return request('/api/study-groups')
+export function getStudyGroups({ page = 0, size = 10, category = '전체', query = '' } = {}) {
+  const params = new URLSearchParams({ page, size, category, query })
+  return request(`/api/study-groups?${params}`)
 }
 
 export function getMyStudyGroups() {
   return request('/api/study-groups/mine')
+}
+
+export function getStudyGroup(studyGroupId) {
+  return request(`/api/study-groups/${studyGroupId}`)
 }
 
 export function getStudyGroupNotifications() {

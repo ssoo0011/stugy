@@ -221,6 +221,7 @@ button { cursor: pointer; transition: transform .16s ease, box-shadow .16s ease,
 .tag-list { display: flex; gap: 6px; margin-top: 13px; flex-wrap: wrap; }
 .tag-list span { padding: 4px 8px; border-radius: 7px; color: #66779b; background: #eef6ff; font-size: 11px; }
 .status-message { padding: 40px 0; color: #8996aa; text-align: center; font-size: 14px; }
+.infinite-scroll-sentinel { min-height: 44px; padding: 14px 0 2px; color: #8996aa; text-align: center; font-size: 12px; }
 
 .floating-button {
   position: fixed; right: max(18px, calc((100vw - 520px) / 2 + 18px)); bottom: calc(77px + env(safe-area-inset-bottom));
@@ -479,6 +480,7 @@ button { cursor: pointer; transition: transform .16s ease, box-shadow .16s ease,
 .my-study-section .section-heading { margin-right: 2px; margin-left: 2px; }
 .my-study-card { min-height: auto; }
 .my-study-status { padding: 4px 7px; border-radius: 6px; color: #6554e8; background: #f1efff; font-size: 11px; font-weight: 900; }
+.my-study-status.rejected { color: #d84f61; background: #fff0f2; }
 .my-study-empty { margin: 0; padding: 24px 15px; border: 1px dashed #dce2ef; border-radius: 12px; color: #96a2b5; background: rgba(255, 255, 255, .52); text-align: center; font-size: 13px; }
 .chats-page { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
 .chats-intro { padding: 18px 22px 15px; }
@@ -683,6 +685,7 @@ button { cursor: pointer; transition: transform .16s ease, box-shadow .16s ease,
 [data-theme='dark'] .my-studies-intro h1 { color: #eef1ff; }
 [data-theme='dark'] .my-studies-intro p:last-child { color: #aab6cb; }
 [data-theme='dark'] .my-study-status { color: #c4bfff; background: rgba(114, 92, 255, .18); }
+[data-theme='dark'] .my-study-status.rejected { color: #ff9aa6; background: rgba(212, 90, 104, .15); }
 [data-theme='dark'] .my-study-empty { border-color: rgba(185, 199, 227, .14); color: #8795ab; background: rgba(31, 40, 59, .6); }
 [data-theme='dark'] .chats-intro h1 { color: #eef1ff; }
 [data-theme='dark'] .chats-intro p:last-child { color: #aab6cb; }

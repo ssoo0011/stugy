@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import logo from '../assets/images/logo2.png'
 import darkLogo from '../assets/images/logo-dark.png'
 import noProfileImage from '../assets/images/no-profile.png'
@@ -22,14 +22,17 @@ function formatNotificationTime(value) {
   return `${Math.floor(minutes / 1440)}일 전`
 }
 
-function HomePage({ currentUser, loading, studyGroups, darkMode, onToggleTheme, onHome, onLogin, onSignUp, onMyPage, onCreateStudyGroup, onStudyGroup, onManageStudyGroup }) {
+function HomePage({ currentUser, loading, loadingMore, studyGroups, studyGroupHasNext, studyGroupTotal, darkMode, onToggleTheme, onHome, onLogin, onSignUp, onMyPage, onCreateStudyGroup, onStudyGroup, onManageStudyGroup, onFilterStudyGroups, onLoadMoreStudyGroups }) {
   const [category, setCategory] = useState('전체')
   const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [notificationCount, setNotificationCount] = useState(0)
   const [notifications, setNotifications] = useState([])
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notificationTab, setNotificationTab] = useState('notifications')
   const notificationRef = useRef(null)
+  const loadMoreRef = useRef(null)
+  const initialFilterRef = useRef(true)
 
   useEffect(() => {
     if (!currentUser) {
@@ -39,7 +42,7 @@ function HomePage({ currentUser, loading, studyGroups, darkMode, onToggleTheme, 
     }
     getStudyGroupNotifications()
       .then((result) => {
-        setNotificationCount(result.pendingApplicationCount)
+        setNotificationCount(result.unreadNotificationCount)
         setNotifications(result.notifications)
       })
       .catch(() => {
@@ -60,18 +63,36 @@ function HomePage({ currentUser, loading, studyGroups, darkMode, onToggleTheme, 
     }
   }, [])
 
-  const filteredGroups = useMemo(() => {
-    const keyword = query.trim().toLowerCase()
-    return studyGroups.filter((group) => {
-      const matchesCategory = category === '전체' || group.category === category
-      const matchesKeyword = !keyword || `${group.title} ${group.tags.join(' ')}`.toLowerCase().includes(keyword)
-      return matchesCategory && matchesKeyword
-    })
-  }, [category, query, studyGroups])
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 250)
+    return () => window.clearTimeout(timer)
+  }, [query])
 
-  const openNotificationGroup = (studyGroupId) => {
+  useEffect(() => {
+    if (initialFilterRef.current) {
+      initialFilterRef.current = false
+      return
+    }
+    onFilterStudyGroups({ category, query: debouncedQuery })
+  }, [category, debouncedQuery])
+
+  useEffect(() => {
+    if (!studyGroupHasNext || loading || loadingMore || !loadMoreRef.current) return
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) onLoadMoreStudyGroups()
+    }, { rootMargin: '180px' })
+    observer.observe(loadMoreRef.current)
+    return () => observer.disconnect()
+  }, [studyGroupHasNext, loading, loadingMore, onLoadMoreStudyGroups])
+
+  const openNotificationGroup = (notification) => {
+    const { studyGroupId, notificationType } = notification
     const studyGroup = studyGroups.find((group) => group.id === studyGroupId)
-    onManageStudyGroup(studyGroup || { id: studyGroupId })
+    if (notificationType === 'APPLICATION_REQUESTED') {
+      onManageStudyGroup(studyGroup || { id: studyGroupId })
+      return
+    }
+    onStudyGroup(studyGroup || { id: studyGroupId })
   }
 
   const toggleNotifications = () => {
@@ -80,7 +101,7 @@ function HomePage({ currentUser, loading, studyGroups, darkMode, onToggleTheme, 
       if (nextOpen && notificationCount > 0) {
         setNotificationCount(0)
         readStudyGroupNotifications().catch(() => {
-          getStudyGroupNotifications().then((result) => setNotificationCount(result.pendingApplicationCount))
+          getStudyGroupNotifications().then((result) => setNotificationCount(result.unreadNotificationCount))
         })
       }
       return nextOpen
@@ -135,12 +156,18 @@ function HomePage({ currentUser, loading, studyGroups, darkMode, onToggleTheme, 
                     ) : notifications.length === 0 ? (
                       <p className="notification-empty">새로운 알림이 없어요.</p>
                     ) : notifications.map((notification) => (
-                      <button className="notification-item" type="button" key={notification.applicationId} onClick={() => openNotificationGroup(notification.studyGroupId)}>
-                        <span className="notification-avatar">{notification.applicantNickname.slice(0, 1)}</span>
+                      <button className="notification-item" type="button" key={`${notification.notificationType}-${notification.applicationId}`} onClick={() => openNotificationGroup(notification)}>
+                        <span className="notification-avatar">{notification.actorNickname.slice(0, 1)}</span>
                         <span className="notification-copy">
-                          <strong>{notification.applicantNickname}<small>{formatNotificationTime(notification.requestedAt)}</small></strong>
+                          <strong>{notification.actorNickname}<small>{formatNotificationTime(notification.notificationAt)}</small></strong>
                           <span>{notification.studyGroupTitle}</span>
-                          <p>스터디 참가를 신청했어요. 신청 내용을 확인해 주세요.</p>
+                          {notification.notificationType === 'APPLICATION_REQUESTED' ? (
+                            <p>스터디 참가를 신청했어요. 신청 내용을 확인해 주세요.</p>
+                          ) : notification.applicationStatus === 'ACCEPTED' ? (
+                            <p>스터디 참가 신청이 수락되었어요.</p>
+                          ) : (
+                            <p>스터디 참가 신청이 거절되었어요.</p>
+                          )}
                         </span>
                       </button>
                     ))}
@@ -188,14 +215,14 @@ function HomePage({ currentUser, loading, studyGroups, darkMode, onToggleTheme, 
             <p className="eyebrow">RECOMMENDED</p>
             <h2>지금 모집 중인 스터디</h2>
           </div>
-          <span>{filteredGroups.length}개</span>
+          <span>{studyGroupTotal}개</span>
         </div>
 
         {loading && <p className="status-message">스터디를 찾고 있어요.</p>}
-        {!loading && filteredGroups.length === 0 && <p className="status-message">조건에 맞는 스터디가 없어요.</p>}
+        {!loading && studyGroups.length === 0 && <p className="status-message">조건에 맞는 스터디가 없어요.</p>}
 
         <div className="study-list">
-          {filteredGroups.map((group) => (
+          {studyGroups.map((group) => (
             <article className="study-card" key={group.id} role="button" tabIndex="0" onClick={() => onStudyGroup(group)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onStudyGroup(group) }}>
               <div className="card-top">
                 <span className="category-label">{group.category}</span>
@@ -212,6 +239,9 @@ function HomePage({ currentUser, loading, studyGroups, darkMode, onToggleTheme, 
               </div>
             </article>
           ))}
+        </div>
+        <div className="infinite-scroll-sentinel" ref={loadMoreRef}>
+          {loadingMore && <span>스터디를 더 불러오고 있어요.</span>}
         </div>
       </section>
 

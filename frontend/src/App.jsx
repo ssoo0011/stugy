@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getCurrentUser, logout } from './api/authApi.js'
-import { getStudyGroups } from './api/studyGroupApi.js'
+import { getStudyGroup, getStudyGroups } from './api/studyGroupApi.js'
 import BottomNav from './components/BottomNav.jsx'
 import CreateStudyGroupPage from './pages/CreateStudyGroupPage.jsx'
 import HomePage from './pages/HomePage.jsx'
@@ -46,10 +46,18 @@ function App() {
   const [routeStudyGroupId, setRouteStudyGroupId] = useState(initialRoute.studyGroupId)
   const [currentUser, setCurrentUser] = useState(null)
   const [studyGroups, setStudyGroups] = useState([])
+  const [studyGroupPage, setStudyGroupPage] = useState(0)
+  const [studyGroupHasNext, setStudyGroupHasNext] = useState(false)
+  const [studyGroupTotal, setStudyGroupTotal] = useState(0)
+  const [studyGroupFilters, setStudyGroupFilters] = useState({ category: '전체', query: '' })
   const [selectedStudyGroup, setSelectedStudyGroup] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [detailLoading, setDetailLoading] = useState(false)
   const [authLoading, setAuthLoading] = useState(true)
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('stugy-theme') === 'dark')
+  const studyGroupRequestRef = useRef(0)
+  const studyGroupFetchingRef = useRef(false)
 
   const withBottomNav = (content) => (
     <>
@@ -73,11 +81,36 @@ function App() {
     window.location.hash = routePath(nextPage, studyGroup)
   }
 
-  const loadStudyGroups = () => {
-    setLoading(true)
-    return getStudyGroups()
-      .then(setStudyGroups)
-      .finally(() => setLoading(false))
+  const loadStudyGroups = ({ page = 0, category = '전체', query = '', append = false } = {}) => {
+    if (append && studyGroupFetchingRef.current) return Promise.resolve()
+    const requestId = ++studyGroupRequestRef.current
+    studyGroupFetchingRef.current = true
+    append ? setLoadingMore(true) : setLoading(true)
+    return getStudyGroups({ page, category, query })
+      .then((result) => {
+        if (requestId !== studyGroupRequestRef.current) return
+        setStudyGroups((current) => append
+          ? [...current, ...result.groups.filter((group) => !current.some((item) => item.id === group.id))]
+          : result.groups)
+        setStudyGroupPage(result.page)
+        setStudyGroupHasNext(result.hasNext)
+        setStudyGroupTotal(result.totalElements)
+      })
+      .finally(() => {
+        if (requestId !== studyGroupRequestRef.current) return
+        studyGroupFetchingRef.current = false
+        append ? setLoadingMore(false) : setLoading(false)
+      })
+  }
+
+  const filterStudyGroups = (filters) => {
+    setStudyGroupFilters(filters)
+    return loadStudyGroups({ ...filters })
+  }
+
+  const loadMoreStudyGroups = () => {
+    if (!studyGroupHasNext || loading || loadingMore) return
+    return loadStudyGroups({ ...studyGroupFilters, page: studyGroupPage + 1, append: true })
   }
 
   useEffect(() => {
@@ -108,10 +141,18 @@ function App() {
 
   useEffect(() => {
     if ((page !== 'study-detail' && page !== 'study-management') || !routeStudyGroupId) return
-    setSelectedStudyGroup((current) => (
-      studyGroups.find((studyGroup) => studyGroup.id === routeStudyGroupId)
-      || (current?.id === routeStudyGroupId ? current : null)
-    ))
+    const loadedStudyGroup = studyGroups.find((studyGroup) => studyGroup.id === routeStudyGroupId)
+    if (loadedStudyGroup) {
+      setSelectedStudyGroup(loadedStudyGroup)
+      setDetailLoading(false)
+      return
+    }
+    if (selectedStudyGroup?.id === routeStudyGroupId && selectedStudyGroup.title) return
+    setDetailLoading(true)
+    getStudyGroup(routeStudyGroupId)
+      .then((studyGroup) => setSelectedStudyGroup(studyGroup))
+      .catch(() => setSelectedStudyGroup(null))
+      .finally(() => setDetailLoading(false))
   }, [page, routeStudyGroupId, studyGroups])
 
   useEffect(() => {
@@ -146,12 +187,13 @@ function App() {
 
   if (page === 'create-study' && currentUser) {
     return withBottomNav(<CreateStudyGroupPage onBack={() => navigate('home')} onCreated={async () => {
+      setStudyGroupFilters({ category: '전체', query: '' })
       await loadStudyGroups()
       navigate('home')
     }} />)
   }
 
-  if (page === 'study-detail' && selectedStudyGroup) {
+  if (page === 'study-detail' && selectedStudyGroup?.title) {
     return withBottomNav(<StudyGroupDetailPage studyGroup={selectedStudyGroup} onBack={() => navigate('home')} onManage={() => navigate('study-management', selectedStudyGroup)} />)
   }
 
@@ -159,7 +201,7 @@ function App() {
     return withBottomNav(<StudyGroupManagementPage studyGroupId={routeStudyGroupId} onBack={() => navigate('study-detail', selectedStudyGroup || { id: routeStudyGroupId })} onChat={() => navigate('chats')} />)
   }
 
-  if ((page === 'study-detail' && loading) || ((page === 'my-page' || page === 'my-studies' || page === 'chats' || page === 'create-study' || page === 'study-management') && authLoading)) {
+  if ((page === 'study-detail' && (loading || detailLoading)) || ((page === 'my-page' || page === 'my-studies' || page === 'chats' || page === 'create-study' || page === 'study-management') && authLoading)) {
     return withBottomNav(<main className="app-shell"><p className="status-message">페이지를 불러오고 있어요.</p></main>)
   }
 
@@ -171,7 +213,12 @@ function App() {
     <HomePage
       currentUser={currentUser}
       loading={loading}
+      loadingMore={loadingMore}
       studyGroups={studyGroups}
+      studyGroupHasNext={studyGroupHasNext}
+      studyGroupTotal={studyGroupTotal}
+      onFilterStudyGroups={filterStudyGroups}
+      onLoadMoreStudyGroups={loadMoreStudyGroups}
       onHome={() => navigate('home')}
       onLogin={() => navigate('login')}
       onSignUp={() => navigate('sign-up')}
