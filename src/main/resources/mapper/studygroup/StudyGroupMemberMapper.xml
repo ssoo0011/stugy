@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.stugy.studygroup.mapper.StudyGroupMemberMapper">
+
+    <insert id="insertStudyGroupMember" parameterType="com.stugy.studygroup.domain.StudyGroupMember"
+            useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        <![CDATA[
+            INSERT INTO study_group_members (
+                study_group_id,
+                user_id,
+                status,
+                notification_read_yn,
+                created_at,
+                updated_at
+            ) VALUES (
+                #{studyGroup.id},
+                #{user.id},
+                #{status},
+                #{notificationReadYn},
+                CURRENT_TIMESTAMP,
+                CURRENT_TIMESTAMP
+            )
+        ]]>
+    </insert>
+
+    <update id="updateStudyGroupMember" parameterType="com.stugy.studygroup.domain.StudyGroupMember">
+        <![CDATA[
+            UPDATE study_group_members
+            SET status = #{status},
+                notification_read_yn = #{notificationReadYn},
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = #{id}
+        ]]>
+    </update>
+
+    <select id="selectById" parameterType="Long"
+            resultType="com.stugy.studygroup.domain.StudyGroupMember">
+        <![CDATA[
+            SELECT
+                M.id,
+                M.study_group_id AS `studyGroup.id`,
+                M.user_id AS `user.id`,
+                M.status,
+                M.notification_read_yn,
+                M.created_at,
+                M.updated_at
+            FROM study_group_members M
+            WHERE M.id = #{id}
+        ]]>
+    </select>
+
+    <select id="selectByStudyGroupIdAndUserId"
+            resultType="com.stugy.studygroup.domain.StudyGroupMember">
+        <![CDATA[
+            SELECT
+                M.id,
+                M.study_group_id AS `studyGroup.id`,
+                M.user_id AS `user.id`,
+                M.status,
+                M.notification_read_yn,
+                M.created_at,
+                M.updated_at
+            FROM study_group_members M
+            WHERE M.study_group_id = #{studyGroupId}
+              AND M.user_id = #{userId}
+        ]]>
+    </select>
+
+    <select id="selectAllByUserId" parameterType="Long"
+            resultType="com.stugy.studygroup.domain.StudyGroupMember">
+        <![CDATA[
+            SELECT
+                M.id,
+                M.study_group_id AS `studyGroup.id`,
+                M.user_id AS `user.id`,
+                M.status,
+                M.notification_read_yn,
+                M.created_at,
+                M.updated_at
+            FROM study_group_members M
+            WHERE M.user_id = #{userId}
+        ]]>
+    </select>
+
+    <select id="selectAllByUserIdOrderByIdDesc" parameterType="Long"
+            resultType="com.stugy.studygroup.domain.StudyGroupMember">
+        <![CDATA[
+            SELECT
+                M.id,
+                M.status,
+                M.notification_read_yn,
+                M.created_at,
+                M.updated_at,
+                SG.id AS `studyGroup.id`,
+                SG.title AS `studyGroup.title`,
+                SG.category AS `studyGroup.category`,
+                SG.study_method AS `studyGroup.studyMethod`,
+                SG.region AS `studyGroup.region`,
+                SG.place AS `studyGroup.place`,
+                SG.capacity AS `studyGroup.capacity`,
+                SG.current_members AS `studyGroup.currentMembers`,
+                SG.recruitment_status AS `studyGroup.recruitmentStatus`,
+                SG.difficulty AS `studyGroup.difficulty`,
+                SG.meeting_days AS `studyGroup.meetingDays`,
+                SG.meeting_time AS `studyGroup.meetingTime`,
+                SG.duration AS `studyGroup.duration`,
+                SG.goal AS `studyGroup.goal`,
+                SG.participation_requirements AS `studyGroup.participationRequirements`,
+                SG.description AS `studyGroup.description`,
+                SG.contact_link AS `studyGroup.contactLink`,
+                U.id AS `studyGroup.owner.id`,
+                U.nickname AS `studyGroup.owner.nickname`
+            FROM study_group_members M
+            INNER JOIN study_groups SG ON SG.id = M.study_group_id
+            INNER JOIN users U ON U.id = SG.owner_id
+            WHERE M.user_id = #{userId}
+            ORDER BY M.id DESC
+        ]]>
+    </select>
+
+    <select id="selectCountByStudyGroupIdAndStatus" resultType="long">
+        <![CDATA[
+            SELECT COUNT(*)
+            FROM study_group_members
+            WHERE study_group_id = #{studyGroupId}
+              AND status = #{status}
+        ]]>
+    </select>
+
+    <select id="selectAllByStudyGroupIdAndStatusOrderByIdAsc"
+            resultType="com.stugy.studygroup.domain.StudyGroupMember">
+        <![CDATA[
+            SELECT
+                M.id,
+                M.study_group_id AS `studyGroup.id`,
+                M.status,
+                M.notification_read_yn,
+                M.created_at,
+                M.updated_at,
+                U.id AS `user.id`,
+                U.login_id AS `user.loginId`,
+                U.nickname AS `user.nickname`
+            FROM study_group_members M
+            INNER JOIN users U ON U.id = M.user_id
+            WHERE M.study_group_id = #{studyGroupId}
+              AND M.status = #{status}
+            ORDER BY M.id ASC
+        ]]>
+    </select>
+
+    <select id="selectCountByStudyGroupOwnerIdAndStatusAndNotificationReadYn" resultType="long">
+        <![CDATA[
+            SELECT COUNT(*)
+            FROM study_group_members M
+            INNER JOIN study_groups SG ON SG.id = M.study_group_id
+            WHERE SG.owner_id = #{ownerId}
+              AND M.status = #{status}
+              AND M.notification_read_yn = #{notificationReadYn}
+        ]]>
+    </select>
+
+    <select id="selectAllByStudyGroupOwnerIdAndStatusOrderByCreatedAtDesc"
+            resultType="com.stugy.studygroup.domain.StudyGroupMember">
+        <![CDATA[
+            SELECT
+                M.id,
+                M.status,
+                M.notification_read_yn,
+                M.created_at,
+                M.updated_at,
+                SG.id AS `studyGroup.id`,
+                SG.title AS `studyGroup.title`,
+                U.id AS `user.id`,
+                U.nickname AS `user.nickname`
+            FROM study_group_members M
+            INNER JOIN study_groups SG ON SG.id = M.study_group_id
+            INNER JOIN users U ON U.id = M.user_id
+            WHERE SG.owner_id = #{ownerId}
+              AND M.status = #{status}
+            ORDER BY M.created_at DESC
+        ]]>
+    </select>
+
+    <select id="selectAllByStudyGroupOwnerIdAndStatusAndNotificationReadYn"
+            resultType="com.stugy.studygroup.domain.StudyGroupMember">
+        <![CDATA[
+            SELECT
+                M.id,
+                M.status,
+                M.notification_read_yn,
+                M.created_at,
+                M.updated_at,
+                SG.id AS `studyGroup.id`,
+                U.id AS `user.id`
+            FROM study_group_members M
+            INNER JOIN study_groups SG ON SG.id = M.study_group_id
+            INNER JOIN users U ON U.id = M.user_id
+            WHERE SG.owner_id = #{ownerId}
+              AND M.status = #{status}
+              AND M.notification_read_yn = #{notificationReadYn}
+        ]]>
+    </select>
+
+    <select id="selectCountByUserIdAndStatusInAndNotificationReadYn" resultType="long">
+        <![CDATA[
+            SELECT COUNT(*)
+            FROM study_group_members M
+            WHERE M.user_id = #{userId}
+              AND M.status IN
+        ]]>
+        <foreach collection="statuses" item="status" open="(" separator="," close=")">
+            #{status}
+        </foreach>
+        <![CDATA[
+              AND M.notification_read_yn = #{notificationReadYn}
+        ]]>
+    </select>
+
+    <select id="selectAllByUserIdAndStatusInOrderByUpdatedAtDesc"
+            resultType="com.stugy.studygroup.domain.StudyGroupMember">
+        <![CDATA[
+            SELECT
+                M.id,
+                M.status,
+                M.notification_read_yn,
+                M.created_at,
+                M.updated_at,
+                SG.id AS `studyGroup.id`,
+                SG.title AS `studyGroup.title`,
+                U.id AS `studyGroup.owner.id`,
+                U.nickname AS `studyGroup.owner.nickname`,
+                M.user_id AS `user.id`
+            FROM study_group_members M
+            INNER JOIN study_groups SG ON SG.id = M.study_group_id
+            INNER JOIN users U ON U.id = SG.owner_id
+            WHERE M.user_id = #{userId}
+              AND M.status IN
+        ]]>
+        <foreach collection="statuses" item="status" open="(" separator="," close=")">
+            #{status}
+        </foreach>
+        <![CDATA[
+            ORDER BY M.updated_at DESC
+        ]]>
+    </select>
+
+    <select id="selectAllByUserIdAndStatusInAndNotificationReadYn"
+            resultType="com.stugy.studygroup.domain.StudyGroupMember">
+        <![CDATA[
+            SELECT
+                M.id,
+                M.status,
+                M.notification_read_yn,
+                M.created_at,
+                M.updated_at,
+                M.study_group_id AS `studyGroup.id`,
+                M.user_id AS `user.id`
+            FROM study_group_members M
+            WHERE M.user_id = #{userId}
+              AND M.status IN
+        ]]>
+        <foreach collection="statuses" item="status" open="(" separator="," close=")">
+            #{status}
+        </foreach>
+        <![CDATA[
+              AND M.notification_read_yn = #{notificationReadYn}
+        ]]>
+    </select>
+
+</mapper>

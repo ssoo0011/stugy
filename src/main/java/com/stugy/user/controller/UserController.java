@@ -9,6 +9,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -17,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.stugy.user.domain.User;
 import com.stugy.user.dto.request.SignUpRequest;
+import com.stugy.user.dto.request.UpdateProfileRequest;
 import com.stugy.user.service.UserService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -45,6 +47,13 @@ public class UserController {
 	public void replaceProfileImage(@RequestParam("profileImage") MultipartFile profileImage,
 			Authentication authentication, HttpServletRequest servletRequest) throws IOException {
 		userService.replaceProfileImage(authentication.getName(), profileImage, servletRequest.getRemoteAddr());
+	}
+
+	@PutMapping("/me")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void updateProfile(@Valid @ModelAttribute UpdateProfileRequest request, Authentication authentication,
+			HttpServletRequest servletRequest) throws IOException {
+		userService.updateProfile(authentication.getName(), request, servletRequest.getRemoteAddr());
 	}
 
 	@DeleteMapping("/me/profile-image")

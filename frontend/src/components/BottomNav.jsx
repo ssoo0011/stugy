@@ -1,5 +1,5 @@
 function BottomNav({ currentPage, currentUser, onHome, onExplore, onMyStudies, onMyPage, onLogin }) {
-  const selectedPage = currentPage === 'my-page'
+  const selectedPage = currentPage === 'my-page' || currentPage === 'profile-edit'
     ? 'my-page'
     : currentPage === 'my-studies' || currentPage === 'study-detail' || currentPage === 'study-management'
       ? 'my-studies'

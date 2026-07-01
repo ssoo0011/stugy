@@ -27,39 +27,39 @@ import com.stugy.studygroup.dto.response.StudyGroupNotificationResponse;
 import com.stugy.studygroup.dto.response.StudyGroupPageResponse;
 import com.stugy.studygroup.dto.response.StudyGroupResponse;
 import com.stugy.studygroup.dto.response.StudyGroupScheduleResponse;
-import com.stugy.studygroup.repository.StudyGroupMemberRepository;
-import com.stugy.studygroup.repository.StudyGroupRepository;
-import com.stugy.studygroup.repository.StudyGroupScheduleRepository;
+import com.stugy.studygroup.mapper.StudyGroupMapper;
+import com.stugy.studygroup.mapper.StudyGroupMemberMapper;
+import com.stugy.studygroup.mapper.StudyGroupScheduleMapper;
 import com.stugy.user.domain.User;
-import com.stugy.user.repository.UserRepository;
+import com.stugy.user.mapper.UserMapper;
 
 @Service
 public class StudyGroupService {
 
-	private final StudyGroupRepository studyGroupRepository;
-	private final UserRepository userRepository;
-	private final StudyGroupMemberRepository studyGroupMemberRepository;
-	private final StudyGroupScheduleRepository studyGroupScheduleRepository;
+	private final StudyGroupMapper studyGroupMapper;
+	private final UserMapper userMapper;
+	private final StudyGroupMemberMapper studyGroupMemberMapper;
+	private final StudyGroupScheduleMapper studyGroupScheduleMapper;
 
-	public StudyGroupService(StudyGroupRepository studyGroupRepository, UserRepository userRepository,
-			StudyGroupMemberRepository studyGroupMemberRepository,
-			StudyGroupScheduleRepository studyGroupScheduleRepository) {
-		this.studyGroupRepository = studyGroupRepository;
-		this.userRepository = userRepository;
-		this.studyGroupMemberRepository = studyGroupMemberRepository;
-		this.studyGroupScheduleRepository = studyGroupScheduleRepository;
+	public StudyGroupService(StudyGroupMapper studyGroupMapper, UserMapper userMapper,
+			StudyGroupMemberMapper studyGroupMemberMapper,
+			StudyGroupScheduleMapper studyGroupScheduleMapper) {
+		this.studyGroupMapper = studyGroupMapper;
+		this.userMapper = userMapper;
+		this.studyGroupMemberMapper = studyGroupMemberMapper;
+		this.studyGroupScheduleMapper = studyGroupScheduleMapper;
 	}
 
 	@Transactional(readOnly = true)
 	public StudyGroupPageResponse findAll(String loginId, int page, int size, String category, String query) {
-		User currentUser = loginId == null ? null : userRepository.findByLoginId(loginId).orElse(null);
+		User currentUser = loginId == null ? null : userMapper.selectByLoginId(loginId).orElse(null);
 		Map<Long, StudyGroupMemberStatus> applicationStatuses = currentUser == null
 				? Map.of()
-				: studyGroupMemberRepository.findAllByUserId(currentUser.getId()).stream()
+				: studyGroupMemberMapper.selectAllByUserId(currentUser.getId()).stream()
 						.collect(Collectors.toMap(
 								member -> member.getStudyGroup().getId(),
 								StudyGroupMember::getStatus));
-		Page<StudyGroup> studyGroupPage = studyGroupRepository.findPage(
+		Page<StudyGroup> studyGroupPage = studyGroupMapper.selectPage(
 				category == null || category.isBlank() ? "전체" : category,
 				query == null ? "" : query.trim(),
 				PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 30)));
@@ -79,9 +79,9 @@ public class StudyGroupService {
 
 	@Transactional
 	public StudyGroupResponse create(String loginId, CreateStudyGroupRequest request) {
-		User owner = userRepository.findByLoginId(loginId)
+		User owner = userMapper.selectByLoginId(loginId)
 				.orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
-		StudyGroup studyGroup = studyGroupRepository.save(new StudyGroup(
+		StudyGroup studyGroup = new StudyGroup(
 				owner,
 				request.title(),
 				request.category(),
@@ -96,17 +96,18 @@ public class StudyGroupService {
 				request.goal(),
 				request.participationRequirements(),
 				request.description(),
-				request.contactLink()));
+				request.contactLink());
+		studyGroupMapper.insertStudyGroup(studyGroup);
 		return StudyGroupResponse.from(studyGroup, null, true, countMembers(studyGroup));
 	}
 
 	@Transactional(readOnly = true)
 	public StudyGroupResponse findOne(String loginId, Long studyGroupId) {
-		User currentUser = loginId == null ? null : userRepository.findByLoginId(loginId).orElse(null);
+		User currentUser = loginId == null ? null : userMapper.selectByLoginId(loginId).orElse(null);
 		StudyGroup studyGroup = findStudyGroup(studyGroupId);
 		StudyGroupMemberStatus applicationStatus = currentUser == null
 				? null
-				: studyGroupMemberRepository.findByStudyGroupIdAndUserId(studyGroupId, currentUser.getId())
+				: studyGroupMemberMapper.selectByStudyGroupIdAndUserId(studyGroupId, currentUser.getId())
 						.map(StudyGroupMember::getStatus)
 						.orElse(null);
 		return StudyGroupResponse.from(
@@ -118,12 +119,12 @@ public class StudyGroupService {
 
 	@Transactional(readOnly = true)
 	public MyStudyGroupsResponse findMine(String loginId) {
-		User user = userRepository.findByLoginId(loginId)
+		User user = userMapper.selectByLoginId(loginId)
 				.orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
-		List<StudyGroupResponse> createdGroups = studyGroupRepository.findAllByOwnerIdOrderByIdDesc(user.getId()).stream()
+		List<StudyGroupResponse> createdGroups = studyGroupMapper.selectAllByOwnerIdOrderByIdDesc(user.getId()).stream()
 				.map(studyGroup -> StudyGroupResponse.from(studyGroup, null, true, countMembers(studyGroup)))
 				.toList();
-		List<StudyGroupResponse> appliedGroups = studyGroupMemberRepository.findAllByUserIdOrderByIdDesc(user.getId()).stream()
+		List<StudyGroupResponse> appliedGroups = studyGroupMemberMapper.selectAllByUserIdOrderByIdDesc(user.getId()).stream()
 				.map(member -> StudyGroupResponse.from(
 						member.getStudyGroup(),
 						member.getStatus(),
@@ -135,22 +136,22 @@ public class StudyGroupService {
 
 	@Transactional(readOnly = true)
 	public StudyGroupNotificationResponse findNotifications(String loginId) {
-		User user = userRepository.findByLoginId(loginId)
+		User user = userMapper.selectByLoginId(loginId)
 				.orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 		List<StudyGroupMemberStatus> resultStatuses = List.of(
 				StudyGroupMemberStatus.ACCEPTED,
 				StudyGroupMemberStatus.REJECTED);
-		long unreadNotificationCount = studyGroupMemberRepository.countByStudyGroupOwnerIdAndStatusAndNotificationReadYn(
+		long unreadNotificationCount = studyGroupMemberMapper.selectCountByStudyGroupOwnerIdAndStatusAndNotificationReadYn(
 				user.getId(), StudyGroupMemberStatus.REQUESTED, "N");
-		unreadNotificationCount += studyGroupMemberRepository.countByUserIdAndStatusInAndNotificationReadYn(
+		unreadNotificationCount += studyGroupMemberMapper.selectCountByUserIdAndStatusInAndNotificationReadYn(
 				user.getId(), resultStatuses, "N");
-		List<StudyGroupNotificationItemResponse> requestedNotifications = studyGroupMemberRepository
-				.findAllByStudyGroupOwnerIdAndStatusOrderByCreatedAtDesc(user.getId(), StudyGroupMemberStatus.REQUESTED)
+		List<StudyGroupNotificationItemResponse> requestedNotifications = studyGroupMemberMapper
+				.selectAllByStudyGroupOwnerIdAndStatusOrderByCreatedAtDesc(user.getId(), StudyGroupMemberStatus.REQUESTED)
 				.stream()
 				.map(StudyGroupNotificationItemResponse::request)
 				.toList();
-		List<StudyGroupNotificationItemResponse> resultNotifications = studyGroupMemberRepository
-				.findAllByUserIdAndStatusInOrderByUpdatedAtDesc(user.getId(), resultStatuses)
+		List<StudyGroupNotificationItemResponse> resultNotifications = studyGroupMemberMapper
+				.selectAllByUserIdAndStatusInOrderByUpdatedAtDesc(user.getId(), resultStatuses)
 				.stream()
 				.map(StudyGroupNotificationItemResponse::result)
 				.toList();
@@ -163,23 +164,29 @@ public class StudyGroupService {
 
 	@Transactional
 	public void readNotifications(String loginId) {
-		User user = userRepository.findByLoginId(loginId)
+		User user = userMapper.selectByLoginId(loginId)
 				.orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
-		studyGroupMemberRepository.findAllByStudyGroupOwnerIdAndStatusAndNotificationReadYn(
+		studyGroupMemberMapper.selectAllByStudyGroupOwnerIdAndStatusAndNotificationReadYn(
 				user.getId(), StudyGroupMemberStatus.REQUESTED, "N")
-				.forEach(StudyGroupMember::markNotificationAsRead);
-		studyGroupMemberRepository.findAllByUserIdAndStatusInAndNotificationReadYn(
+				.forEach(member -> {
+					member.markNotificationAsRead();
+					studyGroupMemberMapper.updateStudyGroupMember(member);
+				});
+		studyGroupMemberMapper.selectAllByUserIdAndStatusInAndNotificationReadYn(
 				user.getId(),
 				List.of(StudyGroupMemberStatus.ACCEPTED, StudyGroupMemberStatus.REJECTED),
 				"N")
-				.forEach(StudyGroupMember::markNotificationAsRead);
+				.forEach(member -> {
+					member.markNotificationAsRead();
+					studyGroupMemberMapper.updateStudyGroupMember(member);
+				});
 	}
 
 	@Transactional
 	public StudyGroupApplicationResponse apply(String loginId, Long studyGroupId) {
-		User user = userRepository.findByLoginId(loginId)
+		User user = userMapper.selectByLoginId(loginId)
 				.orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
-		StudyGroup studyGroup = studyGroupRepository.findById(studyGroupId)
+		StudyGroup studyGroup = studyGroupMapper.selectById(studyGroupId)
 				.orElseThrow(() -> new IllegalArgumentException("스터디를 찾을 수 없습니다."));
 
 		if (studyGroup.getOwner().getId().equals(user.getId())) {
@@ -189,7 +196,7 @@ public class StudyGroupService {
 			throw new IllegalArgumentException("정원이 모두 찬 스터디입니다.");
 		}
 
-		StudyGroupMember member = studyGroupMemberRepository.findByStudyGroupIdAndUserId(studyGroupId, user.getId())
+		StudyGroupMember member = studyGroupMemberMapper.selectByStudyGroupIdAndUserId(studyGroupId, user.getId())
 				.map(existingMember -> {
 					if (existingMember.getStatus() == StudyGroupMemberStatus.REQUESTED) {
 						throw new IllegalArgumentException("이미 참가 신청한 스터디입니다.");
@@ -202,7 +209,12 @@ public class StudyGroupService {
 				})
 				.orElseGet(() -> new StudyGroupMember(studyGroup, user));
 
-		return StudyGroupApplicationResponse.from(studyGroupMemberRepository.save(member));
+		if (member.getId() == null) {
+			studyGroupMemberMapper.insertStudyGroupMember(member);
+		} else {
+			studyGroupMemberMapper.updateStudyGroupMember(member);
+		}
+		return StudyGroupApplicationResponse.from(member);
 	}
 
 	@Transactional(readOnly = true)
@@ -210,7 +222,7 @@ public class StudyGroupService {
 		User user = findUser(loginId);
 		StudyGroup studyGroup = findStudyGroup(studyGroupId);
 		boolean ownerView = studyGroup.getOwner().getId().equals(user.getId());
-		boolean acceptedMember = studyGroupMemberRepository.findByStudyGroupIdAndUserId(studyGroupId, user.getId())
+		boolean acceptedMember = studyGroupMemberMapper.selectByStudyGroupIdAndUserId(studyGroupId, user.getId())
 				.map(member -> member.getStatus() == StudyGroupMemberStatus.ACCEPTED)
 				.orElse(false);
 		if (!ownerView && !acceptedMember) {
@@ -218,18 +230,18 @@ public class StudyGroupService {
 		}
 		List<StudyGroupMemberResponse> members = new java.util.ArrayList<>();
 		members.add(StudyGroupMemberResponse.owner(studyGroup.getOwner()));
-		studyGroupMemberRepository.findAllByStudyGroupIdAndStatusOrderByIdAsc(
+		studyGroupMemberMapper.selectAllByStudyGroupIdAndStatusOrderByIdAsc(
 				studyGroupId, StudyGroupMemberStatus.ACCEPTED)
 				.stream()
 				.map(member -> StudyGroupMemberResponse.member(member.getUser()))
 				.forEach(members::add);
-		List<StudyGroupScheduleResponse> schedules = studyGroupScheduleRepository
-				.findAllByStudyGroupIdOrderByScheduledAtAsc(studyGroupId)
+		List<StudyGroupScheduleResponse> schedules = studyGroupScheduleMapper
+				.selectAllByStudyGroupIdOrderByScheduledAtAsc(studyGroupId)
 				.stream()
 				.map(StudyGroupScheduleResponse::from)
 				.toList();
 		List<StudyGroupApplicantResponse> applicants = ownerView
-				? studyGroupMemberRepository.findAllByStudyGroupIdAndStatusOrderByIdAsc(
+				? studyGroupMemberMapper.selectAllByStudyGroupIdAndStatusOrderByIdAsc(
 						studyGroupId, StudyGroupMemberStatus.REQUESTED)
 						.stream()
 						.map(StudyGroupApplicantResponse::from)
@@ -250,8 +262,10 @@ public class StudyGroupService {
 	public StudyGroupScheduleResponse createSchedule(String loginId, Long studyGroupId,
 			CreateStudyGroupScheduleRequest request) {
 		StudyGroup studyGroup = findOwnedStudyGroup(loginId, studyGroupId);
-		return StudyGroupScheduleResponse.from(studyGroupScheduleRepository.save(
-				new StudyGroupSchedule(studyGroup, request.title(), request.content(), normalizeScheduleTime(request.scheduledAt()))));
+		StudyGroupSchedule schedule = new StudyGroupSchedule(studyGroup, request.title(), request.content(),
+				normalizeScheduleTime(request.scheduledAt()));
+		studyGroupScheduleMapper.insertStudyGroupSchedule(schedule);
+		return StudyGroupScheduleResponse.from(schedule);
 	}
 
 	@Transactional
@@ -260,13 +274,14 @@ public class StudyGroupService {
 		findOwnedStudyGroup(loginId, studyGroupId);
 		StudyGroupSchedule schedule = findSchedule(studyGroupId, scheduleId);
 		schedule.update(request.title(), request.content(), normalizeScheduleTime(request.scheduledAt()));
+		studyGroupScheduleMapper.updateStudyGroupSchedule(schedule);
 		return StudyGroupScheduleResponse.from(schedule);
 	}
 
 	@Transactional
 	public void deleteSchedule(String loginId, Long studyGroupId, Long scheduleId) {
 		findOwnedStudyGroup(loginId, studyGroupId);
-		studyGroupScheduleRepository.delete(findSchedule(studyGroupId, scheduleId));
+		studyGroupScheduleMapper.deleteById(findSchedule(studyGroupId, scheduleId).getId());
 	}
 
 	@Transactional
@@ -277,6 +292,7 @@ public class StudyGroupService {
 		}
 		StudyGroupMember member = findRequestedApplication(studyGroupId, applicationId);
 		member.accept();
+		studyGroupMemberMapper.updateStudyGroupMember(member);
 		return StudyGroupApplicationResponse.from(member);
 	}
 
@@ -285,11 +301,12 @@ public class StudyGroupService {
 		findOwnedStudyGroup(loginId, studyGroupId);
 		StudyGroupMember member = findRequestedApplication(studyGroupId, applicationId);
 		member.reject();
+		studyGroupMemberMapper.updateStudyGroupMember(member);
 		return StudyGroupApplicationResponse.from(member);
 	}
 
 	private int countMembers(StudyGroup studyGroup) {
-		return 1 + Math.toIntExact(studyGroupMemberRepository.countByStudyGroupIdAndStatus(
+		return 1 + Math.toIntExact(studyGroupMemberMapper.selectCountByStudyGroupIdAndStatus(
 				studyGroup.getId(), StudyGroupMemberStatus.ACCEPTED));
 	}
 
@@ -303,7 +320,7 @@ public class StudyGroupService {
 	}
 
 	private StudyGroupMember findRequestedApplication(Long studyGroupId, Long applicationId) {
-		StudyGroupMember member = studyGroupMemberRepository.findById(applicationId)
+		StudyGroupMember member = studyGroupMemberMapper.selectById(applicationId)
 				.orElseThrow(() -> new IllegalArgumentException("참가 신청을 찾을 수 없습니다."));
 		if (!member.getStudyGroup().getId().equals(studyGroupId)
 				|| member.getStatus() != StudyGroupMemberStatus.REQUESTED) {
@@ -313,7 +330,7 @@ public class StudyGroupService {
 	}
 
 	private StudyGroupSchedule findSchedule(Long studyGroupId, Long scheduleId) {
-		StudyGroupSchedule schedule = studyGroupScheduleRepository.findById(scheduleId)
+		StudyGroupSchedule schedule = studyGroupScheduleMapper.selectById(scheduleId)
 				.orElseThrow(() -> new IllegalArgumentException("일정을 찾을 수 없습니다."));
 		if (!schedule.getStudyGroup().getId().equals(studyGroupId)) {
 			throw new IllegalArgumentException("처리할 수 없는 일정입니다.");
@@ -329,12 +346,12 @@ public class StudyGroupService {
 	}
 
 	private User findUser(String loginId) {
-		return userRepository.findByLoginId(loginId)
+		return userMapper.selectByLoginId(loginId)
 				.orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 	}
 
 	private StudyGroup findStudyGroup(Long studyGroupId) {
-		return studyGroupRepository.findById(studyGroupId)
+		return studyGroupMapper.selectById(studyGroupId)
 				.orElseThrow(() -> new IllegalArgumentException("스터디를 찾을 수 없습니다."));
 	}
 }

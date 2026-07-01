@@ -10,17 +10,18 @@ import org.springframework.web.multipart.MultipartFile;
 import com.stugy.common.file.service.FileStorageService;
 import com.stugy.user.domain.User;
 import com.stugy.user.dto.request.SignUpRequest;
-import com.stugy.user.repository.UserRepository;
+import com.stugy.user.dto.request.UpdateProfileRequest;
+import com.stugy.user.mapper.UserMapper;
 
 @Service
 public class UserService {
 
-	private final UserRepository userRepository;
+	private final UserMapper userMapper;
 	private final PasswordEncoder passwordEncoder;
 	private final FileStorageService fileStorageService;
 
-	public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, FileStorageService fileStorageService) {
-		this.userRepository = userRepository;
+	public UserService(UserMapper userMapper, PasswordEncoder passwordEncoder, FileStorageService fileStorageService) {
+		this.userMapper = userMapper;
 		this.passwordEncoder = passwordEncoder;
 		this.fileStorageService = fileStorageService;
 	}
@@ -30,7 +31,7 @@ public class UserService {
 		validateUniqueFields(request);
 
 		String normalizedPhoneNumber = request.getPhoneNumber().replace("-", "");
-		User user = userRepository.saveAndFlush(new User(
+		User user = new User(
 				request.getLoginId(),
 				request.getEmail(),
 				passwordEncoder.encode(request.getPassword()),
@@ -38,7 +39,8 @@ public class UserService {
 				request.getRegion(),
 				request.getBirthDate(),
 				normalizedPhoneNumber,
-				request.getIntroduction()));
+				request.getIntroduction());
+		userMapper.insertUser(user);
 		fileStorageService.replaceProfileImage(user.getId(), request.getProfileImage(), user.getLoginId(), createIp);
 		return user;
 	}
@@ -54,22 +56,52 @@ public class UserService {
 		fileStorageService.deleteProfileImage(findByLoginId(loginId).getId());
 	}
 
+	@Transactional
+	public User updateProfile(String loginId, UpdateProfileRequest request, String createIp) throws IOException {
+		User user = findByLoginId(loginId);
+		String normalizedPhoneNumber = request.getPhoneNumber().replace("-", "");
+		validateUniqueProfileFields(user, request, normalizedPhoneNumber);
+		user.updateProfile(
+				request.getEmail(),
+				request.getNickname(),
+				request.getRegion(),
+				request.getBirthDate(),
+				normalizedPhoneNumber,
+				request.getIntroduction());
+		userMapper.updateUserProfile(user);
+		fileStorageService.replaceProfileImage(
+				user.getId(), request.getProfileImage(), user.getLoginId(), createIp);
+		return user;
+	}
+
 	private User findByLoginId(String loginId) {
-		return userRepository.findByLoginId(loginId)
+		return userMapper.selectByLoginId(loginId)
 				.orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 	}
 
 	private void validateUniqueFields(SignUpRequest request) {
-		if (userRepository.existsByLoginId(request.getLoginId())) {
+		if (userMapper.selectExistsByLoginId(request.getLoginId())) {
 			throw new IllegalArgumentException("이미 사용 중인 아이디입니다.");
 		}
-		if (userRepository.existsByEmail(request.getEmail())) {
+		if (userMapper.selectExistsByEmail(request.getEmail())) {
 			throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
 		}
-		if (userRepository.existsByNickname(request.getNickname())) {
+		if (userMapper.selectExistsByNickname(request.getNickname())) {
 			throw new IllegalArgumentException("이미 사용 중인 닉네임입니다.");
 		}
-		if (userRepository.existsByPhoneNumber(request.getPhoneNumber().replace("-", ""))) {
+		if (userMapper.selectExistsByPhoneNumber(request.getPhoneNumber().replace("-", ""))) {
+			throw new IllegalArgumentException("이미 가입된 휴대폰 번호입니다.");
+		}
+	}
+
+	private void validateUniqueProfileFields(User user, UpdateProfileRequest request, String normalizedPhoneNumber) {
+		if (userMapper.selectExistsByEmailAndIdNot(request.getEmail(), user.getId())) {
+			throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
+		}
+		if (userMapper.selectExistsByNicknameAndIdNot(request.getNickname(), user.getId())) {
+			throw new IllegalArgumentException("이미 사용 중인 닉네임입니다.");
+		}
+		if (userMapper.selectExistsByPhoneNumberAndIdNot(normalizedPhoneNumber, user.getId())) {
 			throw new IllegalArgumentException("이미 가입된 휴대폰 번호입니다.");
 		}
 	}

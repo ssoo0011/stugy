@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.stugy.studygroup.mapper.StudyGroupMapper">
+
+    <insert id="insertStudyGroup" parameterType="com.stugy.studygroup.domain.StudyGroup"
+            useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        <![CDATA[
+            INSERT INTO study_groups (
+                owner_id, title, category, study_method, region, place,
+                capacity, current_members, recruitment_status, difficulty,
+                meeting_days, meeting_time, duration, goal,
+                participation_requirements, description, contact_link, created_at
+            ) VALUES (
+                #{owner.id}, #{title}, #{category}, #{studyMethod}, #{region}, #{place},
+                #{capacity}, #{currentMembers}, #{recruitmentStatus}, #{difficulty},
+                #{meetingDays}, #{meetingTime}, #{duration}, #{goal},
+                #{participationRequirements}, #{description}, #{contactLink}, CURRENT_TIMESTAMP
+            )
+        ]]>
+    </insert>
+
+    <select id="selectById" parameterType="Long"
+            resultType="com.stugy.studygroup.domain.StudyGroup">
+        <![CDATA[
+            SELECT
+                SG.*,
+                U.id AS `owner.id`,
+                U.login_id AS `owner.loginId`,
+                U.nickname AS `owner.nickname`
+            FROM study_groups SG
+            INNER JOIN users U ON U.id = SG.owner_id
+            WHERE SG.id = #{id}
+        ]]>
+    </select>
+
+    <select id="selectAllByOwnerIdOrderByIdDesc" parameterType="Long"
+            resultType="com.stugy.studygroup.domain.StudyGroup">
+        <![CDATA[
+            SELECT
+                SG.*,
+                U.id AS `owner.id`,
+                U.login_id AS `owner.loginId`,
+                U.nickname AS `owner.nickname`
+            FROM study_groups SG
+            INNER JOIN users U ON U.id = SG.owner_id
+            WHERE SG.owner_id = #{ownerId}
+            ORDER BY SG.id DESC
+        ]]>
+    </select>
+
+    <select id="selectPageRows" resultType="com.stugy.studygroup.domain.StudyGroup">
+        <![CDATA[
+            SELECT
+                SG.*,
+                U.id AS `owner.id`,
+                U.login_id AS `owner.loginId`,
+                U.nickname AS `owner.nickname`
+            FROM study_groups SG
+            INNER JOIN users U ON U.id = SG.owner_id
+            WHERE 1 = 1
+        ]]>
+        <if test="category != null and category != ''">
+            <![CDATA[ AND SG.category = #{category} ]]>
+        </if>
+        <if test="query != null and query != ''">
+            <![CDATA[
+                AND (
+                    LOWER(SG.title) LIKE CONCAT('%', LOWER(#{query}), '%')
+                    OR LOWER(SG.description) LIKE CONCAT('%', LOWER(#{query}), '%')
+                    OR LOWER(SG.category) LIKE CONCAT('%', LOWER(#{query}), '%')
+                    OR LOWER(SG.study_method) LIKE CONCAT('%', LOWER(#{query}), '%')
+                    OR LOWER(SG.difficulty) LIKE CONCAT('%', LOWER(#{query}), '%')
+                )
+            ]]>
+        </if>
+        <![CDATA[
+            ORDER BY SG.id DESC
+            LIMIT #{size} OFFSET #{offset}
+        ]]>
+    </select>
+
+    <select id="selectPageCount" resultType="long">
+        <![CDATA[
+            SELECT COUNT(*)
+            FROM study_groups SG
+            WHERE 1 = 1
+        ]]>
+        <if test="category != null and category != ''">
+            <![CDATA[ AND SG.category = #{category} ]]>
+        </if>
+        <if test="query != null and query != ''">
+            <![CDATA[
+                AND (
+                    LOWER(SG.title) LIKE CONCAT('%', LOWER(#{query}), '%')
+                    OR LOWER(SG.description) LIKE CONCAT('%', LOWER(#{query}), '%')
+                    OR LOWER(SG.category) LIKE CONCAT('%', LOWER(#{query}), '%')
+                    OR LOWER(SG.study_method) LIKE CONCAT('%', LOWER(#{query}), '%')
+                    OR LOWER(SG.difficulty) LIKE CONCAT('%', LOWER(#{query}), '%')
+                )
+            ]]>
+        </if>
+    </select>
+
+</mapper>

@@ -78,4 +78,20 @@ public class User {
 	public String getPasswordHash() {
 		return passwordHash;
 	}
+
+	public String getEmail() { return email; }
+	public String getRegion() { return region; }
+	public LocalDate getBirthDate() { return birthDate; }
+	public String getPhoneNumber() { return phoneNumber; }
+	public String getIntroduction() { return introduction; }
+
+	public void updateProfile(String email, String nickname, String region, LocalDate birthDate,
+			String phoneNumber, String introduction) {
+		this.email = email;
+		this.nickname = nickname;
+		this.region = region;
+		this.birthDate = birthDate;
+		this.phoneNumber = phoneNumber;
+		this.introduction = introduction;
+	}
 }

@@ -10,8 +10,15 @@ const applicationLabels = {
 }
 
 function StudyCard({ group, badge, onStudyGroup }) {
+  const openStudyGroup = () => onStudyGroup(group)
+  const handleKeyDown = (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    openStudyGroup()
+  }
+
   return (
-    <article className="study-card my-study-card" role="button" tabIndex="0" onClick={() => onStudyGroup(group)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') onStudyGroup(group) }}>
+    <article className="study-card my-study-card" role="button" tabIndex="0" onClick={openStudyGroup} onKeyDown={handleKeyDown}>
       <div className="card-top">
         <span className="category-label">{group.category}</span>
         <span className={`my-study-status ${group.applicationStatus === 'REJECTED' ? 'rejected' : ''}`}>{badge}</span>

@@ -8,6 +8,7 @@ import ChatsPage from './pages/ChatsPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import MyPage from './pages/MyPage.jsx'
 import MyStudiesPage from './pages/MyStudiesPage.jsx'
+import ProfileEditPage from './pages/ProfileEditPage.jsx'
 import SignUpPage from './pages/SignUpPage.jsx'
 import StudyGroupDetailPage from './pages/StudyGroupDetailPage.jsx'
 import StudyGroupManagementPage from './pages/StudyGroupManagementPage.jsx'
@@ -22,6 +23,7 @@ function readRoute() {
   if (path === '/login') return { page: 'login' }
   if (path === '/sign-up') return { page: 'sign-up' }
   if (path === '/my-page') return { page: 'my-page' }
+  if (path === '/my-page/edit') return { page: 'profile-edit' }
   if (path === '/my-studies') return { page: 'my-studies' }
   if (path === '/chats' || path === '/inbox') return { page: 'chats' }
   if (path === '/study/new') return { page: 'create-study' }
@@ -32,6 +34,7 @@ function routePath(page, studyGroup) {
   if (page === 'login') return '/login'
   if (page === 'sign-up') return '/sign-up'
   if (page === 'my-page') return '/my-page'
+  if (page === 'profile-edit') return '/my-page/edit'
   if (page === 'my-studies') return '/my-studies'
   if (page === 'chats') return '/chats'
   if (page === 'create-study') return '/study/new'
@@ -113,6 +116,14 @@ function App() {
     return loadStudyGroups({ ...studyGroupFilters, page: studyGroupPage + 1, append: true })
   }
 
+  const openMyStudyGroup = (studyGroup) => {
+    if (studyGroup.ownedByCurrentUser || studyGroup.applicationStatus === 'ACCEPTED') {
+      navigate('study-management', studyGroup)
+      return
+    }
+    navigate('study-detail', studyGroup)
+  }
+
   useEffect(() => {
     getCurrentUser()
       .then((result) => setCurrentUser(result.authenticated ? result : null))
@@ -156,7 +167,7 @@ function App() {
   }, [page, routeStudyGroupId, studyGroups])
 
   useEffect(() => {
-    if (!authLoading && !currentUser && (page === 'my-page' || page === 'my-studies' || page === 'chats' || page === 'create-study' || page === 'study-management')) {
+    if (!authLoading && !currentUser && (page === 'my-page' || page === 'profile-edit' || page === 'my-studies' || page === 'chats' || page === 'create-study' || page === 'study-management')) {
       navigate('login')
     }
   }, [authLoading, currentUser, page])
@@ -174,11 +185,19 @@ function App() {
       await logout()
       setCurrentUser(null)
       navigate('home')
-    }} onMyStudies={() => navigate('my-studies')} />)
+    }} onEditProfile={() => navigate('profile-edit')} onMyStudies={() => navigate('my-studies')} />)
+  }
+
+  if (page === 'profile-edit' && currentUser) {
+    return withBottomNav(<ProfileEditPage user={currentUser} onBack={() => navigate('my-page')} onUpdated={async () => {
+      const user = await getCurrentUser()
+      setCurrentUser(user.authenticated ? user : null)
+      navigate('my-page')
+    }} />)
   }
 
   if (page === 'my-studies' && currentUser) {
-    return withBottomNav(<MyStudiesPage onBack={() => navigate('my-page')} onStudyGroup={(studyGroup) => navigate('study-detail', studyGroup)} />)
+    return withBottomNav(<MyStudiesPage onBack={() => navigate('my-page')} onStudyGroup={openMyStudyGroup} />)
   }
 
   if (page === 'chats' && currentUser) {
@@ -201,7 +220,7 @@ function App() {
     return withBottomNav(<StudyGroupManagementPage studyGroupId={routeStudyGroupId} onBack={() => navigate('study-detail', selectedStudyGroup || { id: routeStudyGroupId })} onChat={() => navigate('chats')} />)
   }
 
-  if ((page === 'study-detail' && (loading || detailLoading)) || ((page === 'my-page' || page === 'my-studies' || page === 'chats' || page === 'create-study' || page === 'study-management') && authLoading)) {
+  if ((page === 'study-detail' && (loading || detailLoading)) || ((page === 'my-page' || page === 'profile-edit' || page === 'my-studies' || page === 'chats' || page === 'create-study' || page === 'study-management') && authLoading)) {
     return withBottomNav(<main className="app-shell"><p className="status-message">페이지를 불러오고 있어요.</p></main>)
   }
 

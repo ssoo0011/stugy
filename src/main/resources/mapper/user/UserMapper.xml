@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.stugy.user.mapper.UserMapper">
+
+    <insert id="insertUser" parameterType="com.stugy.user.domain.User"
+            useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        <![CDATA[
+            INSERT INTO users (
+                login_id,
+                email,
+                password_hash,
+                nickname,
+                region,
+                birth_date,
+                phone_number,
+                introduction,
+                created_at
+            ) VALUES (
+                #{loginId},
+                #{email},
+                #{passwordHash},
+                #{nickname},
+                #{region},
+                #{birthDate},
+                #{phoneNumber},
+                #{introduction},
+                CURRENT_TIMESTAMP
+            )
+        ]]>
+    </insert>
+
+    <update id="updateUserProfile" parameterType="com.stugy.user.domain.User">
+        <![CDATA[
+            UPDATE users
+            SET email = #{email},
+                nickname = #{nickname},
+                region = #{region},
+                birth_date = #{birthDate},
+                phone_number = #{phoneNumber},
+                introduction = #{introduction}
+            WHERE id = #{id}
+        ]]>
+    </update>
+
+    <select id="selectExistsByLoginId" parameterType="String" resultType="boolean">
+        <![CDATA[
+            SELECT COUNT(*) > 0
+            FROM users
+            WHERE login_id = #{loginId}
+        ]]>
+    </select>
+
+    <select id="selectExistsByEmail" parameterType="String" resultType="boolean">
+        <![CDATA[
+            SELECT COUNT(*) > 0
+            FROM users
+            WHERE email = #{email}
+        ]]>
+    </select>
+
+    <select id="selectExistsByNickname" parameterType="String" resultType="boolean">
+        <![CDATA[
+            SELECT COUNT(*) > 0
+            FROM users
+            WHERE nickname = #{nickname}
+        ]]>
+    </select>
+
+    <select id="selectExistsByPhoneNumber" parameterType="String" resultType="boolean">
+        <![CDATA[
+            SELECT COUNT(*) > 0
+            FROM users
+            WHERE phone_number = #{phoneNumber}
+        ]]>
+    </select>
+
+    <select id="selectExistsByEmailAndIdNot" resultType="boolean">
+        <![CDATA[
+            SELECT COUNT(*) > 0
+            FROM users
+            WHERE email = #{email}
+              AND id != #{id}
+        ]]>
+    </select>
+
+    <select id="selectExistsByNicknameAndIdNot" resultType="boolean">
+        <![CDATA[
+            SELECT COUNT(*) > 0
+            FROM users
+            WHERE nickname = #{nickname}
+              AND id != #{id}
+        ]]>
+    </select>
+
+    <select id="selectExistsByPhoneNumberAndIdNot" resultType="boolean">
+        <![CDATA[
+            SELECT COUNT(*) > 0
+            FROM users
+            WHERE phone_number = #{phoneNumber}
+              AND id != #{id}
+        ]]>
+    </select>
+
+    <select id="selectByLoginId" parameterType="String"
+            resultType="com.stugy.user.domain.User">
+        <![CDATA[
+            SELECT
+                id,
+                login_id,
+                email,
+                password_hash,
+                nickname,
+                region,
+                birth_date,
+                phone_number,
+                introduction,
+                created_at
+            FROM users
+            WHERE login_id = #{loginId}
+        ]]>
+    </select>
+
+</mapper>

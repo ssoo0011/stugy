@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.stugy.user.domain.User;
-import com.stugy.user.repository.UserRepository;
+import com.stugy.user.mapper.UserMapper;
 import com.stugy.common.file.service.FileStorageService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,14 +32,14 @@ import jakarta.validation.Valid;
 public class AuthController {
 
 	private final AuthenticationManager authenticationManager;
-	private final UserRepository userRepository;
+	private final UserMapper userMapper;
 	private final FileStorageService fileStorageService;
 	private final TokenBasedRememberMeServices rememberMeServices;
 
-	public AuthController(AuthenticationManager authenticationManager, UserRepository userRepository,
+	public AuthController(AuthenticationManager authenticationManager, UserMapper userMapper,
 			FileStorageService fileStorageService, TokenBasedRememberMeServices rememberMeServices) {
 		this.authenticationManager = authenticationManager;
-		this.userRepository = userRepository;
+		this.userMapper = userMapper;
 		this.fileStorageService = fileStorageService;
 		this.rememberMeServices = rememberMeServices;
 	}
@@ -82,9 +82,18 @@ public class AuthController {
 	}
 
 	private Map<String, Object> currentUser(Authentication authentication) {
-		User user = userRepository.findByLoginId(authentication.getName()).orElseThrow();
+		User user = userMapper.selectByLoginId(authentication.getName()).orElseThrow();
 		Long thumbnailId = fileStorageService.findProfileThumbnailId(user.getId());
-		return Map.of("authenticated", true, "id", user.getId(), "loginId", user.getLoginId(), "nickname", user.getNickname(),
-				"profileThumbnailUrl", thumbnailId == null ? "" : "/api/files/" + thumbnailId);
+		return Map.ofEntries(
+				Map.entry("authenticated", true),
+				Map.entry("id", user.getId()),
+				Map.entry("loginId", user.getLoginId()),
+				Map.entry("email", user.getEmail()),
+				Map.entry("nickname", user.getNickname()),
+				Map.entry("region", user.getRegion()),
+				Map.entry("birthDate", user.getBirthDate()),
+				Map.entry("phoneNumber", user.getPhoneNumber()),
+				Map.entry("introduction", user.getIntroduction() == null ? "" : user.getIntroduction()),
+				Map.entry("profileThumbnailUrl", thumbnailId == null ? "" : "/api/files/" + thumbnailId));
 	}
 }
